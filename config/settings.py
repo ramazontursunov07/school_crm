@@ -23,6 +23,9 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
 
     "apps.accounts",
+    "rest_framework",
+    "drf_spectacular",
+    "apps.core",
 ]
 
 MIDDLEWARE = [
@@ -83,3 +86,27 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AUTH_USER_MODEL = "accounts.User"
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 20,
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "EXCEPTION_HANDLER": "apps.core.exceptions.api_exception_handler",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "School CRM API",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SERVE_PERMISSIONS": [
+        "rest_framework.permissions.AllowAny"
+        if DEBUG
+        else "rest_framework.permissions.IsAdminUser"
+    ],
+}
