@@ -56,9 +56,9 @@ HTTPS sozlamalari haqiqiy serverda hali sinalmagan.
 
 ## Qolgan ishlar
 
-- Serverga joylash: web server, proksi, statik fayllar, loglarni boshqarish.
+- Serverga joylash: web server, proksi, statik fayllar. Loglar aylantirilishi qo'shildi, qolgani 9-bosqichda.
 - Zaxira nusxa olish va qayta tiklashni sozlash.
-- 404 va 500 xatolarini yagona API formatiga keltirish.
+- ~~404 va 500 xatolarini yagona API formatiga keltirish.~~ Bajarildi (2-bosqich bilan birga, `/api/` uchun 400/403/404/500).
 - Telefon raqami formatini tekshirish (3-bosqich).
 - Mobil ilova uchun login usulini tanlash (3-bosqich).
 

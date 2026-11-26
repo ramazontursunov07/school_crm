@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -26,6 +27,8 @@ INSTALLED_APPS = [
     "rest_framework",
     "drf_spectacular",
     "apps.core",
+    "apps.organizations",
+    "apps.audit",
 ]
 
 MIDDLEWARE = [
@@ -87,6 +90,10 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AUTH_USER_MODEL = "accounts.User"
 
+if "test" in sys.argv:
+    # Testlar tez ishlashi uchun (parol xeshlash sekin). Faqat `manage.py test`.
+    PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
@@ -98,6 +105,7 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 20,
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "apps.core.exceptions.api_exception_handler",
+    "TEST_REQUEST_DEFAULT_FORMAT": "json",
 }
 
 SPECTACULAR_SETTINGS = {
@@ -123,8 +131,10 @@ LOGGING = {
     "handlers": {
         "console": {"class": "logging.StreamHandler", "formatter": "standard"},
         "error_file": {
-            "class": "logging.FileHandler",
+            "class": "logging.handlers.RotatingFileHandler",
             "filename": LOG_DIR / "errors.log",
+            "maxBytes": 5 * 1024 * 1024,
+            "backupCount": 5,
             "encoding": "utf-8",
             "level": "ERROR",
             "formatter": "standard",
