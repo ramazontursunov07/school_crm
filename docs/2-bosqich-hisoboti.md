@@ -46,7 +46,7 @@ PostgreSQL 18 emas).
 | `python manage.py check` | Xato topilmadi |
 | `python manage.py makemigrations --check --dry-run` | `No changes detected` |
 | `python manage.py spectacular --validate` | Ogohlantirish va xato yo'q |
-| `python manage.py test apps` | 70 ta test, `OK` (avval 7 ta edi) |
+| `python manage.py test` | 70 ta test, `OK` (avval 7 ta edi) |
 
 Yangi testlar: rollar (6), tashkilot va filial API (15), taklif (15),
 xodimlarni boshqarish (10), tashkilotlarni ajratish va audit (11), xato

@@ -30,7 +30,7 @@ Django 5.2, Django REST Framework, PostgreSQL.
 
 ## Testlar
 
-    python manage.py test apps
+    python manage.py test
 
 ## Manzillar
 
@@ -66,6 +66,24 @@ Django 5.2, Django REST Framework, PostgreSQL.
 Xuddi shu format `/api/` manzillaridagi 400, 403, 404 va 500 xatolariga ham
 qo'llanadi (`details` u yerda `null`). `/api/` dan tashqari manzillarda
 (masalan admin) Django'ning standart sahifasi chiqadi.
+
+## Kirish (autentifikatsiya)
+
+| Manzil | Usul | Vazifasi |
+|---|---|---|
+| `/auth/csrf/` | GET | CSRF token olish |
+| `/auth/register/` | POST | `username`, `password`, `email` yoki `phone` |
+| `/auth/login/` | POST | `identifier` (login, email yoki telefon), `password` |
+| `/auth/logout/` | POST | Chiqish |
+| `/auth/me/` | GET | Joriy foydalanuvchi |
+
+- Barcha POST so'rovlarda `X-CSRFToken` sarlavhasi kerak. Login va
+  ro'yxatdan o'tish javobida yangi token qaytadi.
+- Cheklovlar: login IP bo'yicha 20/daqiqa va bitta akkaunt uchun 10/soat
+  (muvaffaqiyatli urinishlar ham hisoblanadi); ro'yxatdan o'tish IP bo'yicha
+  5/soat (xato so'rovlar ham hisoblanadi). Hisob jarayon xotirasida turadi:
+  server qayta ishga tushsa nolga tushadi, bir nechta jarayonda umumiy emas.
+- Email va telefon hali tasdiqlanmaydi.
 
 ## Tashkilotlar (SaaS)
 

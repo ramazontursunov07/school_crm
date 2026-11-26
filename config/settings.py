@@ -106,6 +106,14 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "apps.core.exceptions.api_exception_handler",
     "TEST_REQUEST_DEFAULT_FORMAT": "json",
+    # X-Forwarded-For soxtalashtirilishi mumkin. Proksi ortida bu qiymat
+    # serverga joylashda o'zgartiriladi.
+    "NUM_PROXIES": 0,
+    "DEFAULT_THROTTLE_RATES": {
+        "login_ip": "20/min",
+        "login_identifier": "10/hour",
+        "register_ip": "5/hour",
+    },
 }
 
 SPECTACULAR_SETTINGS = {
