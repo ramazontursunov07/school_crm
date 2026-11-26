@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from apps.organizations.models import Branch, Membership, Organization
@@ -8,11 +9,20 @@ User = get_user_model()
 
 
 class TenantTestCase(APITestCase):
-    def make_user(self, username, **fields):
+    def make_user(self, username, verified=True, **fields):
         fields.setdefault("email", f"{username}@example.com")
-        return User.objects.create_user(
+        user = User.objects.create_user(
             username=username, password="Test-parol-12345", **fields
         )
+        if verified:
+            # Kontaktlar tasdiqlangan deb olinadi (taklifni qabul qilish uchun kerak)
+            now = timezone.now()
+            User.objects.filter(pk=user.pk).update(
+                email_verified_at=now if user.email else None,
+                phone_verified_at=now if user.phone else None,
+            )
+            user.refresh_from_db()
+        return user
 
     def make_org(self, name, owner=None):
         org = Organization.objects.create(
@@ -33,4 +43,3 @@ class TenantTestCase(APITestCase):
 
     def error_code(self, response):
         return response.json()["error"]["code"]
-    

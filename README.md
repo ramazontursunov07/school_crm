@@ -75,7 +75,11 @@ qo'llanadi (`details` u yerda `null`). `/api/` dan tashqari manzillarda
 | `/auth/register/` | POST | `username`, `password`, `email` yoki `phone` |
 | `/auth/login/` | POST | `identifier` (login, email yoki telefon), `password` |
 | `/auth/logout/` | POST | Chiqish |
-| `/auth/me/` | GET | Joriy foydalanuvchi |
+| `/auth/me/` | GET | Joriy foydalanuvchi (`email_verified`, `phone_verified` bilan) |
+| `/auth/verify/request/` | POST | `channel` (`email` yoki `phone`): akkauntdagi kontaktga kod yuborish |
+| `/auth/verify/confirm/` | POST | `channel`, `code`: kontaktni tasdiqlash |
+| `/auth/password-reset/request/` | POST | `identifier`: tiklash kodini yuborish (javob doim 204) |
+| `/auth/password-reset/confirm/` | POST | `identifier`, `code`, `new_password`: yangi parol o'rnatish |
 
 - Barcha POST so'rovlarda `X-CSRFToken` sarlavhasi kerak. Login va
   ro'yxatdan o'tish javobida yangi token qaytadi.
@@ -83,7 +87,26 @@ qo'llanadi (`details` u yerda `null`). `/api/` dan tashqari manzillarda
   (muvaffaqiyatli urinishlar ham hisoblanadi); ro'yxatdan o'tish IP bo'yicha
   5/soat (xato so'rovlar ham hisoblanadi). Hisob jarayon xotirasida turadi:
   server qayta ishga tushsa nolga tushadi, bir nechta jarayonda umumiy emas.
-- Email va telefon hali tasdiqlanmaydi.
+
+### Email/telefon tasdiqlash va parolni tiklash
+
+- Kod 6 xonali, 10 daqiqa amal qiladi, bazada faqat HMAC xeshi saqlanadi.
+  5 marta xato kiritilsa kod yaroqsiz bo'ladi. Yangi kod so'ralsa, eskisi
+  yaroqsiz. Bir akkauntga 60 soniyada 1 ta (`429` + `Retry-After`) va soatiga
+  5 tagacha kod yuboriladi.
+- Kontakt (email/telefon) o'zgarsa, tasdiqlash bekor bo'ladi va eski kod
+  yangi kontaktni tasdiqlay olmaydi.
+- Parolni tiklash kodi faqat **tasdiqlangan** email/telefonga yuboriladi.
+  Akkaunt bormi-yo'qmi, tasdiqlanganmi-yo'qmi, javob bir xil (204).
+  `identifier` login bo'lsa, avval tasdiqlangan email, bo'lmasa telefon ishlatiladi.
+- Parol almashgach boshqa qurilmalardagi sessiyalar tugaydi.
+- Email lokalda konsolga chiqadi (`EMAIL_BACKEND`); serverda SMTP sozlamalari
+  `.env` da. **SMS provayderi hali ulanmagan** (8-bosqich): `DEBUG=True` da kod
+  logga yoziladi, `DEBUG=False` da telefonga kod yuborish `503` qaytaradi.
+  Telefon bilan tiklash/tasdiqlash shu paytgacha serverda ishlamaydi.
+- Cheklovlar (xotirada, 9-bosqichgacha): tiklash so'rovi IP bo'yicha 10/soat va
+  akkaunt bo'yicha 10/soat; kod so'rash IP bo'yicha 10/soat; taklif tokenini
+  qabul qilish foydalanuvchi bo'yicha 10/soat.
 
 ## Tashkilotlar (SaaS)
 
@@ -110,6 +133,8 @@ Qoidalar:
 - Bir foydalanuvchi bir nechta tashkilotda, har birida alohida rol bilan ishlaydi.
 - Yangi tashkilotni yaratgan foydalanuvchi `owner` bo'ladi, "Asosiy filial"
   avtomatik yaratiladi.
+- Taklifni faqat taklifdagi email/telefonni **tasdiqlagan** foydalanuvchi qabul
+  qila oladi.
 - Taklif tokeni faqat taklif yaratilgan javobda ko'rinadi (bazada xeshi
   saqlanadi), 7 kun amal qiladi. Email/SMS orqali yuborish 8-bosqichda.
 - Xodim o'zi bilan teng yoki yuqori rolli xodimni boshqara olmaydi va shunday

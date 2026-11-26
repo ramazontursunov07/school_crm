@@ -113,6 +113,10 @@ REST_FRAMEWORK = {
         "login_ip": "20/min",
         "login_identifier": "10/hour",
         "register_ip": "5/hour",
+        "code_request_ip": "10/hour",
+        "password_reset_ip": "10/hour",
+        "password_reset_identifier": "10/hour",
+        "invitation_accept": "10/hour",
     },
 }
 
@@ -126,6 +130,17 @@ SPECTACULAR_SETTINGS = {
         else "rest_framework.permissions.IsAdminUser"
     ],
 }
+
+# Email: lokalda kodlar konsolga chiqadi. Serverda SMTP sozlamalari .env'dan.
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
+)
+EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "25"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "False") == "True"
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "School CRM <no-reply@localhost>")
 
 LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(exist_ok=True)

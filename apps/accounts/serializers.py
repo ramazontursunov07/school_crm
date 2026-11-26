@@ -10,9 +10,25 @@ User = get_user_model()
 
 
 class UserSerializer(serializers.ModelSerializer):
+    email_verified = serializers.BooleanField(
+        source="is_email_verified", read_only=True
+    )
+    phone_verified = serializers.BooleanField(
+        source="is_phone_verified", read_only=True
+    )
+
     class Meta:
         model = User
-        fields = ["id", "username", "first_name", "last_name", "email", "phone"]
+        fields = [
+            "id",
+            "username",
+            "first_name",
+            "last_name",
+            "email",
+            "phone",
+            "email_verified",
+            "phone_verified",
+        ]
         read_only_fields = fields
 
 
@@ -88,4 +104,29 @@ class AuthResponseSerializer(serializers.Serializer):
 
 class CsrfSerializer(serializers.Serializer):
     csrf_token = serializers.CharField()
-    
+
+
+class VerifyRequestSerializer(serializers.Serializer):
+    channel = serializers.ChoiceField(choices=["email", "phone"])
+
+
+class VerifyConfirmSerializer(serializers.Serializer):
+    channel = serializers.ChoiceField(choices=["email", "phone"])
+    code = serializers.CharField(max_length=10)
+
+
+class VerifyRequestResponseSerializer(serializers.Serializer):
+    expires_in = serializers.IntegerField()
+    resend_after = serializers.IntegerField()
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    identifier = serializers.CharField(max_length=254)
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    identifier = serializers.CharField(max_length=254)
+    code = serializers.CharField(max_length=10)
+    new_password = serializers.CharField(
+        write_only=True, trim_whitespace=False, max_length=128
+    )

@@ -128,15 +128,19 @@ def accept_invitation(*, user, raw_token, request=None):
     ):
         raise ValidationError({"token": [INVALID_INVITATION]})
 
-    # DIQQAT: email/telefon tasdiqlash 3-bosqichda qo'shiladi. O'sha paytgacha
-    # moslik tasdiqlanmagan qiymat bo'yicha tekshiriladi; 3-bosqichda bu
-    # yerda faqat tasdiqlangan kontaktlar hisobga olinishi shart.
+    # Faqat TASDIQLANGAN email/telefon hisobga olinadi: aks holda boshqa
+    # odamning emailini kiritib ro'yxatdan o'tgan kishi taklifni olib qo'yardi.
     matches = (
-        invitation.email and user.email and invitation.email == user.email
-    ) or (invitation.phone and user.phone and invitation.phone == user.phone)
+        invitation.email and user.verified_email == invitation.email
+    ) or (invitation.phone and user.verified_phone == invitation.phone)
     if not matches:
         raise ValidationError(
-            {"token": ["Taklif sizning akkauntingizga mos kelmaydi."]}
+            {
+                "token": [
+                    "Taklif sizning akkauntingizga mos kelmaydi yoki "
+                    "email/telefoningiz tasdiqlanmagan."
+                ]
+            }
         )
 
     branch = invitation.branch if invitation.branch and invitation.branch.is_active else None

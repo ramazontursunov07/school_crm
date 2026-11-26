@@ -35,3 +35,17 @@ class LoginIdentifierThrottle(SimpleRateThrottle):
             identifier = normalize_phone(identifier) or identifier
         ident = hashlib.sha256(identifier.encode()).hexdigest()
         return self.cache_format % {"scope": self.scope, "ident": ident}
+
+
+class CodeRequestIPThrottle(_IPThrottle):
+    scope = "code_request_ip"
+
+
+class PasswordResetIPThrottle(_IPThrottle):
+    scope = "password_reset_ip"
+
+
+class PasswordResetIdentifierThrottle(LoginIdentifierThrottle):
+    """Bitta akkaunt uchun parolni tiklash urinishlarini cheklaydi."""
+
+    scope = "password_reset_identifier"

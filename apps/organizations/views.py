@@ -21,6 +21,7 @@ from .serializers import (
     MemberUpdateSerializer,
     OrganizationSerializer,
 )
+from .throttles import InvitationAcceptThrottle
 
 
 def _changes(instance, validated_data):
@@ -225,6 +226,7 @@ class InvitationViewSet(
 
 class AcceptInvitationView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [InvitationAcceptThrottle]
 
     @extend_schema(
         request=AcceptInvitationSerializer, responses=OrganizationSerializer

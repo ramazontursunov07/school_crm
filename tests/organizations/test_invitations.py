@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.core.cache import cache
 from django.urls import reverse
 from django.utils import timezone
 
@@ -12,6 +13,7 @@ from .helpers import TenantTestCase
 
 class InvitationTests(TenantTestCase):
     def setUp(self):
+        cache.clear()  # token urinishlari hisobi testlar orasida qolib ketmasin
         self.owner = self.make_user("owner")
         self.org = self.make_org("A", owner=self.owner)
         self.url = reverse("invitation-list", args=[self.org.id])
@@ -124,6 +126,52 @@ class InvitationTests(TenantTestCase):
 
         self.assertEqual(self.client.post(self.accept_url, {"token": token}).status_code, 200)
 
+    def test_unverified_contact_cannot_accept(self):
+        self.login(self.owner)
+        token = self.invite(email="vali@example.com").json()["token"]
+        vali = self.make_user("vali", verified=False)
+        self.login(vali)
+
+        response = self.client.post(self.accept_url, {"token": token})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Membership.objects.filter(user=vali, organization=self.org).exists())
+        self.assertEqual(Invitation.objects.get().status, Invitation.Status.PENDING)
+
+    def test_accept_works_after_verification(self):
+        self.login(self.owner)
+        token = self.invite(email="vali@example.com").json()["token"]
+        vali = self.make_user("vali", verified=False)
+        self.login(vali)
+        self.assertEqual(self.client.post(self.accept_url, {"token": token}).status_code, 400)
+
+        vali.email_verified_at = timezone.now()
+        vali.save(update_fields=["email_verified_at"])
+
+        self.assertEqual(self.client.post(self.accept_url, {"token": token}).status_code, 200)
+
+    def test_changing_email_revokes_verification(self):
+        self.login(self.owner)
+        token = self.invite(email="new@example.com").json()["token"]
+        vali = self.make_user("vali")  # vali@example.com tasdiqlangan
+        vali.email = "new@example.com"
+        vali.save()
+        vali.refresh_from_db()
+        self.assertIsNone(vali.email_verified_at)
+        self.login(vali)
+
+        self.assertEqual(self.client.post(self.accept_url, {"token": token}).status_code, 400)
+
+    def test_accept_attempts_are_throttled(self):
+        eve = self.make_user("eve")
+        self.login(eve)
+        codes = [
+            self.client.post(self.accept_url, {"token": f"guess-{i}"}).status_code
+            for i in range(12)
+        ]
+        self.assertEqual(codes[:10], [400] * 10)
+        self.assertEqual(codes[10], 429)
+
     def test_token_cannot_be_reused(self):
         self.login(self.owner)
         token = self.invite(email="vali@example.com").json()["token"]
@@ -209,4 +257,3 @@ class InvitationTests(TenantTestCase):
         url = reverse("invitation-detail", args=[self.org.id, director_inv["id"]])
         self.assertEqual(self.client.delete(url).status_code, 204)
         self.assertEqual(self.client.delete(url).status_code, 400)
-        
