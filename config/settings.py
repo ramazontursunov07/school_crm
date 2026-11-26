@@ -110,3 +110,39 @@ SPECTACULAR_SETTINGS = {
         else "rest_framework.permissions.IsAdminUser"
     ],
 }
+
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(exist_ok=True)
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {"format": "{asctime} {levelname} {name}: {message}", "style": "{"},
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "standard"},
+        "error_file": {
+            "class": "logging.FileHandler",
+            "filename": LOG_DIR / "errors.log",
+            "encoding": "utf-8",
+            "level": "ERROR",
+            "formatter": "standard",
+            "delay": True,
+        },
+    },
+    "root": {"handlers": ["console", "error_file"], "level": "INFO"},
+    "loggers": {
+        "django": {
+            "handlers": ["console", "error_file"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
+
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 3600
