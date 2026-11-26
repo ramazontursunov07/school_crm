@@ -44,3 +44,4 @@ class UserModelTests(TestCase):
 
         with self.assertRaises(IntegrityError), transaction.atomic():
             self.create_user("vali", phone="+998901234567")
+            
