@@ -9,22 +9,31 @@ from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.debug import sensitive_post_parameters
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
-from rest_framework.exceptions import APIException, Throttled, ValidationError
+from rest_framework.exceptions import (
+    APIException,
+    NotFound,
+    Throttled,
+    ValidationError,
+)
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.audit.services import log_action
+from apps.audit.services import get_client_ip, log_action
 
+from .authentication import DeviceTokenAuthentication
 from .delivery import send_code
-from .models import VerificationCode
+from .models import DeviceToken, VerificationCode
 from .serializers import (
     AuthResponseSerializer,
     CsrfSerializer,
+    DeviceSerializer,
     LoginSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     RegisterSerializer,
+    TokenLoginSerializer,
+    TokenResponseSerializer,
     UserSerializer,
     VerifyConfirmSerializer,
     VerifyRequestResponseSerializer,
@@ -39,6 +48,12 @@ from .services import (
     issue_code,
     mark_verified,
     resolve_reset_target,
+)
+from .tokens import (
+    active_tokens,
+    issue_token,
+    revoke_all_tokens,
+    revoke_token,
 )
 from .throttles import (
     CodeRequestIPThrottle,
@@ -315,5 +330,142 @@ class PasswordResetConfirmView(APIView):
         # Parol xeshi o'zgargani uchun boshqa qurilmalardagi sessiyalar tugaydi
         user.set_password(data["new_password"])
         user.save(update_fields=["password"])
+        # Mobil qurilmalardagi tokenlar ham yopiladi
+        revoke_all_tokens(user)
         log_action(action="user.password_reset", actor=user, target=user, request=request)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# --- Mobil ilova: token orqali kirish ------------------------------------
+
+
+@method_decorator(
+    [sensitive_post_parameters("password"), never_cache], name="dispatch"
+)
+class TokenLoginView(APIView):
+    """Mobil ilova uchun kirish. Sessiya va CSRF ishlatilmaydi: javobda
+    `token` qaytadi, keyingi so'rovlarda `Authorization: Bearer <token>`.
+
+    Token faqat shu javobda ko'rinadi (bazada xeshi saqlanadi)."""
+
+    permission_classes = [AllowAny]
+    # Kirish uchun autentifikatsiya kerak emas: eskirgan token yoki sessiya
+    # cookie'si kirishga xalaqit bermasin va CSRF talab qilinmasin.
+    authentication_classes = []
+    throttle_classes = [LoginIPThrottle, LoginIdentifierThrottle]
+
+    @extend_schema(request=TokenLoginSerializer, responses={201: TokenResponseSerializer})
+    def post(self, request):
+        serializer = TokenLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        user = authenticate_by_identifier(
+            request, identifier=data["identifier"], password=data["password"]
+        )
+        if user is None:
+            raise ValidationError({"detail": ["Login yoki parol noto'g'ri."]})
+        token, raw_token = issue_token(
+            user=user,
+            device_name=data["device_name"],
+            ip_address=get_client_ip(request),
+        )
+        log_action(
+            action="user.token_issued",
+            actor=user,
+            target=user,
+            metadata={"device_id": token.pk, "device_name": token.device_name},
+            request=request,
+        )
+        return Response(
+            {
+                "token": raw_token,
+                "token_type": "Bearer",
+                "device_id": token.pk,
+                "expires_at": token.expires_at,
+                "user": UserSerializer(user).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class CurrentTokenView(APIView):
+    """Joriy qurilmadan chiqish (tokenni bekor qilish)."""
+
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [DeviceTokenAuthentication]
+
+    @extend_schema(request=None, responses={204: None})
+    def delete(self, request):
+        revoke_token(request.auth)
+        log_action(
+            action="user.token_revoked",
+            actor=request.user,
+            target=request.user,
+            metadata={"device_id": request.auth.pk},
+            request=request,
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@method_decorator(never_cache, name="dispatch")
+class DeviceListView(APIView):
+    """Akkauntga kirgan mobil qurilmalar ro'yxati."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(responses=DeviceSerializer(many=True))
+    def get(self, request):
+        current_id = request.auth.pk if isinstance(request.auth, DeviceToken) else None
+        devices = [
+            {
+                "id": token.pk,
+                "device_name": token.device_name,
+                "ip_address": token.ip_address,
+                "created_at": token.created_at,
+                "last_used_at": token.last_used_at,
+                "expires_at": token.expires_at,
+                "is_current": token.pk == current_id,
+            }
+            for token in active_tokens(request.user)
+        ]
+        return Response(DeviceSerializer(devices, many=True).data)
+
+
+class DeviceDetailView(APIView):
+    """Qurilmani tizimdan chiqarish. Faqat o'z qurilmangiz: boshqaniki 404."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(request=None, responses={204: None})
+    def delete(self, request, pk):
+        token = active_tokens(request.user).filter(pk=pk).first()
+        if token is None:
+            raise NotFound("Qurilma topilmadi.")
+        revoke_token(token)
+        log_action(
+            action="user.token_revoked",
+            actor=request.user,
+            target=request.user,
+            metadata={"device_id": token.pk},
+            request=request,
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class DeviceRevokeAllView(APIView):
+    """Barcha mobil qurilmalardan chiqish."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(request=None, responses={204: None})
+    def post(self, request):
+        count = revoke_all_tokens(request.user)
+        log_action(
+            action="user.tokens_revoked_all",
+            actor=request.user,
+            target=request.user,
+            metadata={"count": count},
+            request=request,
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    

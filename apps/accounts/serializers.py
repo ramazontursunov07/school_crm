@@ -130,3 +130,31 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     new_password = serializers.CharField(
         write_only=True, trim_whitespace=False, max_length=128
     )
+
+
+class TokenLoginSerializer(serializers.Serializer):
+    identifier = serializers.CharField(max_length=254)
+    password = serializers.CharField(
+        write_only=True, trim_whitespace=False, max_length=128
+    )
+    device_name = serializers.CharField(
+        max_length=100, required=False, allow_blank=True, default=""
+    )
+
+
+class TokenResponseSerializer(serializers.Serializer):
+    token = serializers.CharField()
+    token_type = serializers.CharField()
+    device_id = serializers.IntegerField()
+    expires_at = serializers.DateTimeField()
+    user = UserSerializer()
+
+
+class DeviceSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    device_name = serializers.CharField()
+    ip_address = serializers.IPAddressField(allow_null=True)
+    created_at = serializers.DateTimeField()
+    last_used_at = serializers.DateTimeField()
+    expires_at = serializers.DateTimeField()
+    is_current = serializers.BooleanField()

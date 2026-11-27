@@ -8,9 +8,7 @@ Ro'yxatdan o'tish, kirish/chiqish, email/telefon tasdiqlash, parolni tiklash
 va taklifni faqat tasdiqlangan kontakt bilan qabul qilish yozildi.
 Mobil login, ota-ona/farzand bog'lash va fayl tekshiruvi hali qilinmagan.
 
-**Muhim:** bu bosqichdagi yangi kod Django o'rnatilmagan muhitda yozildi.
-Testlar **ishga tushirilmagan**. Quyidagi buyruqlarni o'z kompyuteringizda
-ishga tushirib natijasini tekshiring (pastda).
+Testlar **ishga tushirildi**.
 
 ## Bandlar holati
 

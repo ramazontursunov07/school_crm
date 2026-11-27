@@ -29,10 +29,12 @@ INSTALLED_APPS = [
     "apps.core",
     "apps.organizations",
     "apps.audit",
+    "apps.family",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "apps.core.middleware.RequestSizeLimitMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -96,8 +98,13 @@ if "test" in sys.argv:
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        # Sessiya birinchi: kirmagan foydalanuvchiga 403 (mavjud xatti-harakat).
+        # Mobil ilova `Authorization: Bearer <token>` bilan kiradi.
         "rest_framework.authentication.SessionAuthentication",
+        "apps.accounts.authentication.DeviceTokenAuthentication",
     ],
+    # Faqat JSON. Fayl yuklaydigan view'lar MultiPartParser'ni o'zi qo'shadi.
+    "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
@@ -117,6 +124,8 @@ REST_FRAMEWORK = {
         "password_reset_ip": "10/hour",
         "password_reset_identifier": "10/hour",
         "invitation_accept": "10/hour",
+        "family_accept": "10/hour",
+        "family_invite": "20/hour",
     },
 }
 
@@ -173,6 +182,20 @@ LOGGING = {
         },
     },
 }
+
+# So'rov hajmi: `RequestSizeLimitMiddleware` (JSON 1 MB, fayl so'rovi 12 MB).
+# Fayllar bunga kirmaydi, ular `apps/core/uploads.py` da tekshiriladi.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 1 * 1024 * 1024
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 200
+API_MAX_JSON_BODY = 1 * 1024 * 1024
+API_MAX_UPLOAD_BODY = 12 * 1024 * 1024  # 5 MB fayl + zaxira
+
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "same-origin"
+X_FRAME_OPTIONS = "DENY"
 
 if not DEBUG:
     SECURE_SSL_REDIRECT = True

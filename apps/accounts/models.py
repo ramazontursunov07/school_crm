@@ -101,3 +101,35 @@ class VerificationCode(models.Model):
 
     def __str__(self):
         return f"{self.purpose} -> user #{self.user_id}"
+
+
+class DeviceToken(models.Model):
+    """Mobil ilova uchun kirish tokeni. Har bir qurilma alohida token oladi.
+
+    Xom token bazada saqlanmaydi, faqat SHA-256 xeshi (token 256 bit
+    tasodifiy, shuning uchun oddiy xesh yetarli). Token ishlatilmasa
+    `expires_at` da tugaydi; ishlatilsa muddat uzayadi, lekin yaratilganiga
+    `ABSOLUTE_LIFETIME` dan keyin baribir yaroqsiz bo'ladi.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="device_tokens",
+    )
+    token_hash = models.CharField(max_length=64, unique=True, editable=False)
+    device_name = models.CharField(max_length=100, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField()
+    expires_at = models.DateTimeField()
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-last_used_at", "-id"]
+        indexes = [
+            models.Index(fields=["user", "revoked_at"], name="devtoken_user_revoked_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.device_name or 'qurilma'} (user #{self.user_id})"

@@ -2,12 +2,17 @@ from django.urls import path
 
 from .views import (
     CsrfView,
+    CurrentTokenView,
+    DeviceDetailView,
+    DeviceListView,
+    DeviceRevokeAllView,
     LoginView,
     LogoutView,
     MeView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
     RegisterView,
+    TokenLoginView,
     VerifyConfirmView,
     VerifyRequestView,
 )
@@ -29,5 +34,14 @@ urlpatterns = [
         "auth/password-reset/confirm/",
         PasswordResetConfirmView.as_view(),
         name="auth-password-reset-confirm",
+    ),
+    path("auth/token/", TokenLoginView.as_view(), name="auth-token-login"),
+    path("auth/token/current/", CurrentTokenView.as_view(), name="auth-token-current"),
+    path("auth/devices/", DeviceListView.as_view(), name="auth-device-list"),
+    path("auth/devices/<int:pk>/", DeviceDetailView.as_view(), name="auth-device-detail"),
+    path(
+        "auth/devices/revoke-all/",
+        DeviceRevokeAllView.as_view(),
+        name="auth-device-revoke-all",
     ),
 ]
