@@ -21,6 +21,7 @@ def form_data(**overrides):
         "description": "",
         "audience": "any",
         "currency": "UZS",
+        "trial_days": "14",
         "price_monthly": "99000",
         "price_yearly": "",
         "max_branches": "",
@@ -143,3 +144,4 @@ class SeedPlansTests(TestCase):
         self.assertIsNone(pro.max_students)
         self.assertTrue(pro.has_feature("marketplace"))
         self.assertFalse(start.has_feature("marketplace"))
+        

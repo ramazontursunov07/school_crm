@@ -1,9 +1,12 @@
 from decimal import Decimal
+from math import ceil
 
-from django.core.validators import MinValueValidator, RegexValidator
+from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
-from django.db.models import Q
+from django.db.models import F, Q
+from django.utils import timezone
 
 from .features import FEATURES, validate_features
 
@@ -63,6 +66,13 @@ class Plan(models.Model):
     max_students = models.PositiveIntegerField("o'quvchilar soni", null=True, blank=True)
 
     features = models.JSONField("imkoniyatlar", default=dict, blank=True, validators=[validate_features])
+
+    trial_days = models.PositiveSmallIntegerField(
+        "sinov muddati (kun)",
+        default=14,
+        validators=[MaxValueValidator(365)],
+        help_text="Tashkilot bu tarifni necha kun bepul sinay oladi. 0 bo'lsa, sinov yo'q.",
+    )
 
     is_active = models.BooleanField(
         "sotuvda", default=True, help_text="O'chirilsa, yangi obuna olib bo'lmaydi."
@@ -133,4 +143,94 @@ class Plan(models.Model):
     def feature_map(self):
         """Barcha ma'lum imkoniyatlar: tarifda yo'qlari False bo'ladi."""
         return {key: bool(self.features.get(key)) for key in FEATURES}
+
+
+class Subscription(models.Model):
+    """Tashkilotning tarifdagi holati. Hozircha faqat sinov davri; pullik
+    obuna (oylik/yillik) keyingi qadamda shu modelga qo'shiladi.
+
+    Sinov muddati serverda hisoblanadi va mijoz tomonidan o'zgartirilmaydi.
+    Sinov tugaganini `effective_status()` vaqt bo'yicha o'zi aniqlaydi, shuning
+    uchun `expire_trials` buyrug'i kechiksa ham sinov muddatidan keyin davom etmaydi.
+    """
+
+    class Status(models.TextChoices):
+        TRIALING = "trialing", "Sinov davrida"
+        EXPIRED = "expired", "Muddati tugagan"
+
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        on_delete=models.PROTECT,
+        related_name="subscriptions",
+    )
+    plan = models.ForeignKey(Plan, on_delete=models.PROTECT, related_name="subscriptions")
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.TRIALING)
+
+    trial_started_at = models.DateTimeField(null=True, blank=True)
+    trial_ends_at = models.DateTimeField(null=True, blank=True)
+    # Foydalanuvchi o'chirilsa bo'sh qoladi (tashkilotdagi sinov hisobi saqlanadi).
+    trial_started_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            # Har bir tashkilot sinovdan umri davomida faqat bir marta foydalanadi.
+            models.UniqueConstraint(
+                fields=["organization"],
+                condition=Q(trial_ends_at__isnull=False),
+                name="one_trial_per_organization",
+            ),
+            # Tashkilotda bir vaqtda bitta ochiq (sinov davridagi) obuna.
+            models.UniqueConstraint(
+                fields=["organization"],
+                condition=Q(status="trialing"),
+                name="one_open_subscription_per_organization",
+            ),
+            models.CheckConstraint(
+                condition=Q(trial_started_at__isnull=True, trial_ends_at__isnull=True)
+                | Q(
+                    trial_started_at__isnull=False,
+                    trial_ends_at__isnull=False,
+                    trial_ends_at__gt=F("trial_started_at"),
+                ),
+                name="subscription_trial_dates_valid",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.organization_id}: {self.plan_id} ({self.status})"
+
+    @property
+    def is_trial(self):
+        return self.trial_ends_at is not None
+
+    def effective_status(self, now=None):
+        now = now or timezone.now()
+        if (
+            self.status == self.Status.TRIALING
+            and self.trial_ends_at is not None
+            and self.trial_ends_at <= now
+        ):
+            return self.Status.EXPIRED
+        return self.status
+
+    def is_usable(self, now=None):
+        """Tashkilot hozir tarif imkoniyatlaridan foydalana oladimi."""
+        return self.effective_status(now) == self.Status.TRIALING
+
+    def days_left(self, now=None):
+        """Sinovning qolgan kunlari (to'liq bo'lmagan kun ham 1 kun hisoblanadi)."""
+        now = now or timezone.now()
+        if not self.is_usable(now):
+            return 0
+        return max(0, ceil((self.trial_ends_at - now).total_seconds() / 86400))
     

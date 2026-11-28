@@ -32,6 +32,8 @@ MEMBERS_VIEW = "members.view"
 MEMBERS_INVITE = "members.invite"
 MEMBERS_MANAGE = "members.manage"
 AUDIT_VIEW = "audit.view"
+BILLING_VIEW = "billing.view"
+BILLING_MANAGE = "billing.manage"
 
 _ALL = frozenset(
     {
@@ -43,15 +45,18 @@ _ALL = frozenset(
         MEMBERS_INVITE,
         MEMBERS_MANAGE,
         AUDIT_VIEW,
+        BILLING_VIEW,
+        BILLING_MANAGE,
     }
 )
 _READ_ONLY = frozenset({ORG_VIEW, BRANCH_VIEW, MEMBERS_VIEW})
 
 ROLE_PERMISSIONS = {
     Role.OWNER: _ALL,
-    Role.DIRECTOR: _ALL - {ORG_MANAGE},
+    # Obuna va to'lov: boshqarish faqat egasida, ko'rish direktor va hisobchida ham.
+    Role.DIRECTOR: _ALL - {ORG_MANAGE, BILLING_MANAGE},
     Role.ADMIN: _READ_ONLY | {BRANCH_MANAGE, MEMBERS_INVITE, MEMBERS_MANAGE},
-    Role.ACCOUNTANT: _READ_ONLY,
+    Role.ACCOUNTANT: _READ_ONLY | {BILLING_VIEW},
     Role.TEACHER: _READ_ONLY,
 }
 

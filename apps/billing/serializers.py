@@ -1,7 +1,7 @@
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from .models import Plan
+from .models import Plan, Subscription
 
 
 class PlanSerializer(serializers.ModelSerializer):
@@ -20,6 +20,7 @@ class PlanSerializer(serializers.ModelSerializer):
             "price_monthly",
             "price_yearly",
             "yearly_discount_percent",
+            "trial_days",
             "limits",
             "features",
         ]
@@ -48,4 +49,40 @@ class PlanSerializer(serializers.ModelSerializer):
     )
     def get_features(self, plan):
         return plan.feature_map()
-    
+
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    plan = PlanSerializer(read_only=True)
+    status = serializers.SerializerMethodField()
+    is_trial = serializers.BooleanField(read_only=True)
+    days_left = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Subscription
+        fields = [
+            "id",
+            "plan",
+            "status",
+            "is_trial",
+            "trial_started_at",
+            "trial_ends_at",
+            "days_left",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+    def get_status(self, subscription) -> str:
+        # Vaqt bo'yicha hisoblangan holat: yopish buyrug'i kechiksa ham to'g'ri.
+        return subscription.effective_status()
+
+    def get_days_left(self, subscription) -> int:
+        return subscription.days_left()
+
+
+class SubscriptionStateSerializer(serializers.Serializer):
+    subscription = SubscriptionSerializer(allow_null=True)
+    trial_available = serializers.BooleanField()
+
+
+class StartTrialSerializer(serializers.Serializer):
+    plan = serializers.SlugField(max_length=40, help_text="Tarif kodi")

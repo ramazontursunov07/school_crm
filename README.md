@@ -154,6 +154,51 @@ Tashkilotga tegishli yangi view yozishda `OrganizationScopedMixin`
 `self.organization` bo'yicha filtrlanadi. Muhim amallar
 `apps.audit.services.log_action` bilan tarixga yoziladi.
 
+## Tariflar (obuna)
+
+CRM tariflari `apps/billing` da. Tarifni **faqat platforma admini** yaratadi
+va o'zgartiradi (`/admin/` > Billing > Plans). Tarif hech qachon o'chirilmaydi:
+sotuvdan olish uchun "sotuvda" belgisi o'chiriladi.
+
+| Manzil | Usul | Vazifasi |
+|---|---|---|
+| `/billing/plans/` | GET | Sotuvdagi ochiq tariflar (kirish shart emas). `?organization_type=learning_center` bilan saralanadi |
+| `/billing/plans/<code>/` | GET | Bitta tarif (kod bo'yicha) |
+
+- Pul qiymatlari satr sifatida qaytadi (`"99000.00"`), valyuta alohida (`currency`).
+- `price_yearly` bo'sh (`null`) bo'lsa, tarif yillik sotilmaydi.
+  `yearly_discount_percent`: yillik to'lov 12 oylikdan necha foiz arzon (pastga yaxlitlanadi).
+- `limits`: filial, xodim va o'quvchilar soni; `null` = cheksiz.
+  Hozircha faqat e'lon qilinadi, majburlash 4-bosqichning "cheklash" qadamida.
+- `features`: `{kalit: true/false}`. Ruxsat etilgan kalitlar ro'yxati
+  `apps/billing/features.py` da (yangi kalit qo'shish uchun migratsiya kerak emas).
+- Ochiq bo'lmagan (`is_public=false`) yoki sotuvdan olingan tarif ro'yxatda ham,
+  kod bo'yicha ham ko'rinmaydi (404).
+- Boshlang'ich **namuna** tariflar: `python manage.py seed_plans`
+  (mavjudiga tegmaydi). Narxlar haqiqiy emas, admin panelda o'zgartiring.
+
+### Sinov davri (14 kun)
+
+Tashkilot tanlangan tarifni shu tarifning haqiqiy imkoniyat va cheklovlari bilan
+sinaydi. Muddat tarifdagi `trial_days` dan olinadi (odatda 14, `0` = sinov yo'q).
+
+| Manzil | Usul | Kim | Vazifasi |
+|---|---|---|---|
+| `/organizations/<org_id>/subscription/` | GET | egasi, direktor, hisobchi | Joriy obuna va `trial_available` |
+| `/organizations/<org_id>/subscription/trial/` | POST | faqat egasi | Sinov boshlash: `{"plan": "standard"}` |
+
+- Sinovni boshqarish (boshlash) faqat tashkilot egasida, ko'rish direktor va hisobchida
+  ham (`billing.view`, `billing.manage`: `apps/organizations/roles.py`).
+- Tashkilot sinovdan umri davomida **bir marta** foydalanadi (bazada ham cheklangan),
+  tugagandan keyin qayta boshlab bo'lmaydi. Bitta foydalanuvchi ko'pi bilan 3 ta sinov
+  boshlay oladi (`MAX_TRIALS_PER_USER`, `apps/billing/services.py`).
+- Muddatni mijoz belgilay olmaydi: u serverda hisoblanadi.
+- Holat vaqt bo'yicha hisoblanadi: sinov muddati o'tgach, javobda darhol `expired`
+  chiqadi. Bazadagi holatni yangilash uchun muddatida ishga tushiring:
+  `python manage.py expire_trials` (9-bosqichda jadvalga qo'yiladi).
+- Xatolar (`error.code`): `trial_active`, `trial_already_used`, `trial_limit_reached`
+  (409); noto'g'ri tarif uchun 400 (`details.plan`).
+
 ## Loglar
 
 Xatolar `logs/errors.log` fayliga yoziladi (5 MB dan oshsa aylantiriladi,
