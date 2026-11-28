@@ -144,3 +144,4 @@ Testlar bo'yicha:
 ## 7. Keyingi qadam
 
 4-bosqich: tariflar, 14 kunlik sinov, oylik/yillik obunalar, hisob-faktura va to'lovlar.
+ 
